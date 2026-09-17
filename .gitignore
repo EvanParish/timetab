@@ -25,3 +25,7 @@ desktop.ini
 .env
 .env.*
 !.env.example
+
+# Superpowers brainstorm artifacts and specs
+.superpowers/
+docs/superpowers/

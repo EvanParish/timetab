@@ -52,7 +52,7 @@ A clean, responsive, and customizable browser clock tab. Zero dependencies, blaz
 
 - **Browser Tab & Favicon Integration**:
   - **Live Tab Title**: Displays the current time in the browser tab title in real-time (e.g. `07:24:15 PM - TimeTab`).
-  - **Dynamic Favicon**: Canvas-generated mini clock icon that updates every minute to match your current time and theme colors.
+  - **Dynamic Favicon**: Canvas-generated mini clock icon, rendered natively at 16×16, 32×32, 48×48 and 64×64 so the browser never has to rescale it. Updates every minute and follows your theme colors, automatically switching to black or white digits when a theme's contrast is too low to read at icon size.
 
 - **Kiosk & Fullscreen Mode**:
   - **Auto-hide Controls**: Toolbar and mouse cursor smoothly fade away after 3 seconds of inactivity, reappearing instantly upon mouse movement.

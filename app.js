@@ -39,11 +39,20 @@
     { name: 'Warm Paper', bg: '#f7f4ea', text: '#2d2b28' },
   ];
 
+  // Favicon: real text rendered natively at each size (no bitmap font, no
+  // upscaling/downscaling of a shared source) so nothing needs to be rescaled
+  // by us or the browser. Font is a regular (non-bold) system UI stack, chosen
+  // because those faces draw an oval '0' with no dot or slash through it.
+  const ICON_SIZES = [16, 32, 48, 64];
+  const ICON_FONT_STACK = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  // AAA-grade floor so low-contrast theme pairings never render illegible digits
+  const ICON_MIN_CONTRAST = 7;
+
   // State
   let settings = { ...DEFAULT_SETTINGS };
   let idleTimer = null;
   let allTimezones = [];
-  let faviconCanvas = null;
+  const faviconCanvases = {};
   let latestHours = '00';
   let latestMinutes = '00';
 
@@ -59,7 +68,12 @@
     dateDisplay: document.getElementById('clock-date'),
     tzBadge: document.getElementById('clock-tz-badge'),
     tzCurrentInfo: document.getElementById('tz-current-info'),
-    favicon: document.getElementById('favicon'),
+    favicons: {
+      16: document.getElementById('favicon-16'),
+      32: document.getElementById('favicon-32'),
+      48: document.getElementById('favicon-48'),
+      64: document.getElementById('favicon-64'),
+    },
 
     // Buttons
     settingsBtn: document.getElementById('settings-btn'),
@@ -431,25 +445,85 @@
   }
 
   /**
-   * Helper to draw dynamically fitted large text in the favicon
+   * Draw one row of digit text, shrinking the font until it fits maxWidth.
+   * Row height is a fixed proportion of the icon rather than measured, since
+   * ascent/descent metrics get rounded to whole pixels at these sizes and a
+   * measurement-driven fit becomes unstable (can pick a wildly undersized or
+   * jumbled font) once that rounding error is a large fraction of the size.
+   * Weight 600 (semibold, short of "bold") reads as more prominent without
+   * needing extra vertical room, which two stacked rows have very little of.
    */
-  function drawFaviconText(ctx, text, y, startSize = 38) {
-    let size = startSize;
-    const fontStack = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-    ctx.font = `900 ${size}px ${fontStack}`;
-    let width = ctx.measureText(text).width;
-    // Scale down if digits exceed available width to prevent any clipping
-    while (width > 58 && size > 24) {
-      size -= 1;
-      ctx.font = `900 ${size}px ${fontStack}`;
-      width = ctx.measureText(text).width;
+  function drawFaviconRow(ctx, text, centerX, centerY, maxWidth, startSize) {
+    let fontSize = startSize;
+    ctx.font = `600 ${fontSize}px ${ICON_FONT_STACK}`;
+    while (ctx.measureText(text).width > maxWidth && fontSize > startSize * 0.4) {
+      fontSize -= 1;
+      ctx.font = `600 ${fontSize}px ${ICON_FONT_STACK}`;
     }
-    ctx.fillText(text, 32, y);
+    ctx.fillText(text, centerX, centerY);
+  }
+
+  /**
+   * Draw the clock icon at its native pixel size: two rows of digit text,
+   * rendered directly at `size` so nothing is ever rescaled.
+   */
+  function drawTextIcon(ctx, size, h, m, fg, bg) {
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = fg;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${-size / 64}px`;
+
+    const maxWidth = size * 0.92;
+    const startSize = size * 0.58;
+    drawFaviconRow(ctx, h, size / 2, size * 0.25, maxWidth, startSize);
+    drawFaviconRow(ctx, m, size / 2, size * 0.75, maxWidth, startSize);
+  }
+
+  /**
+   * Relative luminance per WCAG 2.x
+   */
+  function relativeLuminance(hex) {
+    const clean = normalizeHex(hex).replace('#', '');
+    const channels = [0, 2, 4].map((i) => {
+      const v = parseInt(clean.substring(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  }
+
+  function contrastRatio(hexA, hexB) {
+    const a = relativeLuminance(hexA);
+    const b = relativeLuminance(hexB);
+    const lighter = Math.max(a, b);
+    const darker = Math.min(a, b);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  /**
+   * Resolve icon colors that clear the contrast floor
+   * Digits render small enough that ordinary body-text contrast can still read poorly, hence AAA
+   */
+  function resolveIconColors(bgColor, textColor) {
+    const bg = normalizeHex(bgColor);
+    const fg = normalizeHex(textColor);
+    if (!bg || !fg) return { fg: '#ffffff', bg: '#000000' };
+
+    if (contrastRatio(bg, fg) >= ICON_MIN_CONTRAST) return { fg, bg };
+
+    // Keep the theme background, which carries most of the theme identity at this size
+    const best = contrastRatio(bg, '#ffffff') >= contrastRatio(bg, '#000000') ? '#ffffff' : '#000000';
+    if (contrastRatio(bg, best) >= ICON_MIN_CONTRAST) return { fg: best, bg };
+
+    // Mid-grey background cannot clear the floor against anything
+    return { fg: '#ffffff', bg: '#000000' };
   }
 
   /**
    * Update the dynamic browser tab favicon with current time
-   * Always renders bold white digits on a solid black background tile with no border
+   * Renders each size natively so the browser never has to rescale a shared source
    */
   function updateFavicon(hours, minutes) {
     if (hours !== undefined) latestHours = hours;
@@ -458,32 +532,22 @@
     const m = String(minutes !== undefined ? minutes : latestMinutes);
 
     try {
-      if (!faviconCanvas) {
-        faviconCanvas = document.createElement('canvas');
-        faviconCanvas.width = 64;
-        faviconCanvas.height = 64;
-      }
-      const ctx = faviconCanvas.getContext('2d');
-      ctx.clearRect(0, 0, 64, 64);
+      const colors = resolveIconColors(settings.bgColor, settings.textColor);
 
-      // ALWAYS solid black background tile with no border
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, 64, 64);
-
-      // ALWAYS pure white numbers
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      if ('letterSpacing' in ctx) {
-        ctx.letterSpacing = '-1px';
-      }
-
-      // Large, bold, prominent digits filling the icon area
-      drawFaviconText(ctx, h, 18, 38);
-      drawFaviconText(ctx, m, 47, 38);
-
-      el.favicon.type = 'image/png';
-      el.favicon.href = faviconCanvas.toDataURL('image/png');
+      ICON_SIZES.forEach((size) => {
+        const link = el.favicons[size];
+        if (!link) return;
+        let canvas = faviconCanvases[size];
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          faviconCanvases[size] = canvas;
+        }
+        drawTextIcon(canvas.getContext('2d'), size, h, m, colors.fg, colors.bg);
+        link.type = 'image/png';
+        link.href = canvas.toDataURL('image/png');
+      });
     } catch (e) {
       // Non-critical, ignore canvas errors
     }
