@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TimeTab - A clean, customizable full-screen clock with timezone support, color customization, and live browser tab updates.">
+  <title>TimeTab</title>
+  <link rel="icon" id="favicon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%23000000'/><text x='32' y='21' fill='%23ffffff' font-family='sans-serif' font-weight='900' font-size='26' text-anchor='middle' dominant-baseline='middle'>12</text><text x='32' y='46' fill='%23ffffff' font-family='sans-serif' font-weight='900' font-size='26' text-anchor='middle' dominant-baseline='middle'>00</text></svg>">
+  
+  <!-- Optional Google Fonts with graceful fallbacks -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="clock-app">
+    <!-- Top Floating Toolbar -->
+    <header id="toolbar" class="toolbar">
+      <div class="toolbar-brand">
+        <span class="brand-title">TimeTab</span>
+      </div>
+      <div class="toolbar-actions">
+        <button id="fullscreen-btn" class="icon-btn" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen">
+          <svg class="icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" title="Settings (S)" aria-label="Open Settings">
+          <svg class="icon" viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Clock Stage -->
+    <main id="clock-container" class="clock-container" tabindex="0">
+      <div class="clock-display">
+        <div class="time-wrapper">
+          <span id="clock-hours" class="time-unit hours">00</span>
+          <span id="clock-colon-1" class="time-colon">:</span>
+          <span id="clock-minutes" class="time-unit minutes">00</span>
+          <span id="clock-colon-2" class="time-colon seconds-part">:</span>
+          <span id="clock-seconds" class="time-unit seconds seconds-part">00</span>
+          <span id="clock-ampm" class="ampm-indicator">AM</span>
+        </div>
+        <div id="date-display" class="date-display">
+          <span id="clock-date" class="date-text">Loading date...</span>
+          <span id="clock-tz-badge" class="tz-badge" title="Active Timezone">UTC</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Slide-over Settings Panel -->
+    <div id="settings-backdrop" class="settings-backdrop" aria-hidden="true"></div>
+    <aside id="settings-drawer" class="settings-drawer" aria-hidden="true" role="dialog" aria-labelledby="settings-heading">
+      <div class="drawer-header">
+        <div class="header-title-group">
+          <h2 id="settings-heading">Clock Settings</h2>
+          <span class="version-tag">TimeTab</span>
+        </div>
+        <button id="close-settings-btn" class="icon-btn close-btn" title="Close Settings (Esc)" aria-label="Close Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Section 1: Timezone -->
+        <section class="settings-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            Timezone
+          </h3>
+          <p class="section-desc">Select or search for any world timezone.</p>
+
+          <div class="quick-chips" id="tz-chips">
+            <button type="button" class="chip-btn" data-tz="local">Local (Device)</button>
+            <button type="button" class="chip-btn" data-tz="UTC">UTC</button>
+            <button type="button" class="chip-btn" data-tz="America/New_York">New York</button>
+            <button type="button" class="chip-btn" data-tz="America/Chicago">Chicago</button>
+            <button type="button" class="chip-btn" data-tz="America/Los_Angeles">Los Angeles</button>
+            <button type="button" class="chip-btn" data-tz="Europe/London">London</button>
+            <button type="button" class="chip-btn" data-tz="Europe/Paris">Paris</button>
+            <button type="button" class="chip-btn" data-tz="Asia/Tokyo">Tokyo</button>
+            <button type="button" class="chip-btn" data-tz="Australia/Sydney">Sydney</button>
+          </div>
+
+          <div class="search-input-wrapper">
+            <input type="text" id="tz-search-input" placeholder="Search timezones (e.g. London, Tokyo)..." autocomplete="off">
+            <span class="search-icon">🔍</span>
+          </div>
+
+          <div class="setting-row">
+            <label for="timezone-select" class="form-label">Timezone List</label>
+            <select id="timezone-select" class="form-select" size="6">
+              <!-- Populated dynamically by JavaScript -->
+            </select>
+          </div>
+          <div class="tz-current-info" id="tz-current-info">Current: Local Time</div>
+        </section>
+
+        <!-- Section 2: Colors & Theme -->
+        <section class="settings-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+            </svg>
+            Colors & Themes
+          </h3>
+          <p class="section-desc">Customize background and text colors or pick a curated theme.</p>
+
+          <div class="color-pickers-grid">
+            <div class="color-picker-group">
+              <label for="bg-color-picker">Background Color</label>
+              <div class="color-input-combo">
+                <input type="color" id="bg-color-picker" value="#000000" class="color-circle">
+                <input type="text" id="bg-color-hex" value="#000000" class="color-hex-input" maxlength="7" spellcheck="false">
+              </div>
+            </div>
+
+            <div class="color-picker-group">
+              <label for="text-color-picker">Clock Text Color</label>
+              <div class="color-input-combo">
+                <input type="color" id="text-color-picker" value="#ffffff" class="color-circle">
+                <input type="text" id="text-color-hex" value="#ffffff" class="color-hex-input" maxlength="7" spellcheck="false">
+              </div>
+            </div>
+          </div>
+
+          <div class="preset-themes-label">Color Presets</div>
+          <div class="theme-presets-grid" id="theme-presets-grid">
+            <!-- Theme presets generated by JS -->
+          </div>
+        </section>
+
+        <!-- Section 3: Typography & Style -->
+        <section class="settings-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <polyline points="4 7 4 4 20 4 20 7"/>
+              <line x1="9" y1="20" x2="15" y2="20"/>
+              <line x1="12" y1="4" x2="12" y2="20"/>
+            </svg>
+            Font & Typography
+          </h3>
+
+          <div class="setting-row">
+            <label for="font-select" class="form-label">Font Style</label>
+            <select id="font-select" class="form-select">
+              <option value="modern-sans">Inter / Modern Sans</option>
+              <option value="digital">Orbitron / Digital</option>
+              <option value="chakra">Chakra / Tech Display</option>
+              <option value="monospace">JetBrains Mono / Monospace</option>
+              <option value="bold-grotesk">Impact / Bold Grotesk</option>
+              <option value="classic-serif">Georgia / Classic Serif</option>
+            </select>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-text-glow" class="toggle-label">
+              <span>Text Glow Effect</span>
+              <span class="toggle-desc">Adds a subtle neon glow to the numbers</span>
+            </label>
+            <input type="checkbox" id="toggle-text-glow" class="custom-switch">
+          </div>
+        </section>
+
+        <!-- Section 4: Display Options -->
+        <section class="settings-section">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Display Options
+          </h3>
+
+          <div class="setting-toggle">
+            <label for="toggle-24hour" class="toggle-label">
+              <span>24-Hour Format</span>
+              <span class="toggle-desc">Switch between 12-hour and 24-hour time</span>
+            </label>
+            <input type="checkbox" id="toggle-24hour" class="custom-switch">
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-leading-zero" class="toggle-label">
+              <span>Leading Zero</span>
+              <span class="toggle-desc">Show 07:00 instead of 7:00</span>
+            </label>
+            <input type="checkbox" id="toggle-leading-zero" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-seconds" class="toggle-label">
+              <span>Show Seconds</span>
+              <span class="toggle-desc">Display seconds counter</span>
+            </label>
+            <input type="checkbox" id="toggle-seconds" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-ampm" class="toggle-label">
+              <span>Show AM / PM</span>
+              <span class="toggle-desc">Only visible in 12-hour format</span>
+            </label>
+            <input type="checkbox" id="toggle-ampm" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-date" class="toggle-label">
+              <span>Show Date</span>
+              <span class="toggle-desc">Display day and date below time</span>
+            </label>
+            <input type="checkbox" id="toggle-date" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-tz-badge" class="toggle-label">
+              <span>Show Timezone Badge</span>
+              <span class="toggle-desc">Display current timezone tag</span>
+            </label>
+            <input type="checkbox" id="toggle-tz-badge" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-flashing-colon" class="toggle-label">
+              <span>Flashing Separator</span>
+              <span class="toggle-desc">Flash the colons once per second</span>
+            </label>
+            <input type="checkbox" id="toggle-flashing-colon" class="custom-switch">
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-tab-title" class="toggle-label">
+              <span>Show Time in Browser Tab</span>
+              <span class="toggle-desc">Update page title dynamically</span>
+            </label>
+            <input type="checkbox" id="toggle-tab-title" class="custom-switch" checked>
+          </div>
+
+          <div class="setting-toggle">
+            <label for="toggle-autohide" class="toggle-label">
+              <span>Auto-hide Controls</span>
+              <span class="toggle-desc">Fade out buttons and cursor when idle</span>
+            </label>
+            <input type="checkbox" id="toggle-autohide" class="custom-switch" checked>
+          </div>
+        </section>
+
+        <!-- Section 5: Reset -->
+        <section class="settings-section">
+          <div class="reset-actions">
+            <button id="reset-defaults-btn" class="btn btn-secondary">Reset to Defaults</button>
+          </div>
+        </section>
+
+        <!-- Section 6: Shortcuts & Info -->
+        <section class="settings-section footer-section">
+          <div class="shortcuts-grid">
+            <div class="shortcut-item"><kbd>S</kbd> or <kbd>O</kbd> <span>Toggle Settings</span></div>
+            <div class="shortcut-item"><kbd>F</kbd> <span>Toggle Fullscreen</span></div>
+            <div class="shortcut-item"><kbd>Esc</kbd> <span>Close Settings</span></div>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
