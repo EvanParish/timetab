@@ -450,36 +450,40 @@
    * ascent/descent metrics get rounded to whole pixels at these sizes and a
    * measurement-driven fit becomes unstable (can pick a wildly undersized or
    * jumbled font) once that rounding error is a large fraction of the size.
-   * Weight 600 (semibold, short of "bold") reads as more prominent without
+   * Weight 700 (semibold, short of "bold") reads as more prominent without
    * needing extra vertical room, which two stacked rows have very little of.
    */
   function drawFaviconRow(ctx, text, centerX, centerY, maxWidth, startSize) {
     let fontSize = startSize;
-    ctx.font = `600 ${fontSize}px ${ICON_FONT_STACK}`;
+    ctx.font = `700 ${fontSize}px ${ICON_FONT_STACK}`;
     while (ctx.measureText(text).width > maxWidth && fontSize > startSize * 0.4) {
       fontSize -= 1;
-      ctx.font = `600 ${fontSize}px ${ICON_FONT_STACK}`;
+      ctx.font = `700 ${fontSize}px ${ICON_FONT_STACK}`;
     }
     ctx.fillText(text, centerX, centerY);
   }
 
   /**
-   * Draw the clock icon at its native pixel size: two rows of digit text,
-   * rendered directly at `size` so nothing is ever rescaled.
+   * Draw the clock icon at its native pixel size: same two normal-sized rows
+   * as the centered layout, just offset left/right instead of both centered.
    */
   function drawTextIcon(ctx, size, h, m, fg, bg) {
     ctx.clearRect(0, 0, size, size);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, size, size);
     ctx.fillStyle = fg;
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if ('letterSpacing' in ctx) ctx.letterSpacing = `${-size / 64}px`;
 
-    const maxWidth = size * 0.92;
+    const margin = size * 0.1;
+    const maxWidth = size - margin;
     const startSize = size * 0.58;
-    drawFaviconRow(ctx, h, size / 2, size * 0.25, maxWidth, startSize);
-    drawFaviconRow(ctx, m, size / 2, size * 0.75, maxWidth, startSize);
+
+    ctx.textAlign = 'left';
+    drawFaviconRow(ctx, h, margin, size * 0.25, maxWidth, startSize);
+
+    ctx.textAlign = 'right';
+    drawFaviconRow(ctx, m, size - margin, size * 0.75, maxWidth, startSize);
   }
 
   /**
@@ -584,7 +588,7 @@
         ? `${time.hours}:${time.minutes}:${time.seconds}`
         : `${time.hours}:${time.minutes}`;
       const ampmPart = (!settings.is24Hour && settings.showAmPm && time.dayPeriod) ? ` ${time.dayPeriod}` : '';
-      const newTitle = `${timeTitle}${ampmPart} - TimeTab`;
+      const newTitle = `${timeTitle}${ampmPart}`;
       if (document.title !== newTitle) {
         document.title = newTitle;
       }
