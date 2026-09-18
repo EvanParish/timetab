@@ -54,6 +54,7 @@
           <span id="clock-date" class="date-text">Loading date...</span>
           <span id="clock-tz-badge" class="tz-badge" title="Active Timezone">UTC</span>
         </div>
+        <div id="compare-row" class="compare-row"></div>
       </div>
     </main>
 
@@ -110,6 +111,15 @@
             </select>
           </div>
           <div class="tz-current-info" id="tz-current-info">Current: Local Time</div>
+
+          <div class="compare-subsection">
+            <div class="compare-subsection-header">
+              <span class="form-label">Compare Timezones</span>
+              <button type="button" id="add-compare-btn" class="btn btn-small">+ Add to Comparison</button>
+            </div>
+            <p class="section-desc">Add zones from the list above to show them side-by-side on the main clock.</p>
+            <div class="compare-zones-chips" id="compare-zones-chips"></div>
+          </div>
         </section>
 
         <!-- Section 2: Colors & Theme -->

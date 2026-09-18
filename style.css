@@ -292,6 +292,86 @@ body.is-idle:not(.settings-open) .toolbar {
 }
 
 /* ==========================================================================
+   Timezone Comparison Row (Main Clock View)
+   ========================================================================== */
+.compare-row {
+  display: none;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  max-width: min(90vw, 1100px);
+}
+
+.has-compare-zones .compare-row {
+  display: flex;
+}
+
+.compare-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 130px;
+  padding: 0.85rem 1.1rem;
+  background: rgba(128, 128, 128, 0.12);
+  border: 1px solid rgba(128, 128, 128, 0.22);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.compare-card-remove {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: currentColor;
+  opacity: 0.45;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.15rem;
+}
+
+.compare-card-remove:hover {
+  opacity: 0.9;
+}
+
+.compare-card-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.compare-card-time {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  font-size: 1.5rem;
+  font-weight: var(--font-weight);
+}
+
+.ccard-ampm {
+  font-size: 0.55em;
+  font-weight: 600;
+  margin-left: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.compare-card-offset {
+  font-size: 0.72rem;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
    Settings Drawer & Backdrop
    ========================================================================== */
 .settings-backdrop {
@@ -541,6 +621,62 @@ select#timezone-select option:checked {
   border-left: 3px solid var(--primary-accent);
 }
 
+/* Compare Timezones Subsection */
+.compare-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.compare-subsection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.compare-zones-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.compare-zones-empty {
+  font-size: 0.8rem;
+  color: var(--panel-muted);
+  font-style: italic;
+}
+
+.compare-zone-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.4rem 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--panel-input-bg);
+  color: var(--panel-text);
+  border: 1px solid var(--panel-input-border);
+  border-radius: 6px;
+}
+
+.compare-zone-chip button {
+  background: none;
+  border: none;
+  color: var(--panel-muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.1rem 0.2rem;
+}
+
+.compare-zone-chip button:hover {
+  color: #ef4444;
+}
+
 /* Color Pickers */
 .color-pickers-grid {
   display: grid;
@@ -758,6 +894,20 @@ select#timezone-select option:checked {
   color: #ef4444;
 }
 
+.btn-small {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.76rem;
+  background: var(--panel-input-bg);
+  color: var(--primary-accent);
+  border-color: var(--panel-input-border);
+  white-space: nowrap;
+}
+
+.btn-small:hover {
+  background: var(--panel-hover);
+  border-color: var(--primary-accent);
+}
+
 /* Keyboard shortcuts list */
 .shortcuts-grid {
   display: flex;
@@ -807,5 +957,19 @@ kbd {
 
   .theme-presets-grid {
     grid-template-columns: 1fr;
+  }
+
+  .compare-row {
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .compare-card {
+    min-width: 100px;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .compare-card-time {
+    font-size: 1.15rem;
   }
 }

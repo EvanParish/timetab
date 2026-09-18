@@ -21,7 +21,11 @@
     flashingColon: false,
     showTabTitle: true,
     autoHideControls: true,
+    compareZones: [],
   };
+
+  // Maximum number of extra timezones a user can pin for side-by-side comparison
+  const MAX_COMPARE_ZONES = 8;
 
   // Curated Preset Themes
   const PRESET_THEMES = [
@@ -52,6 +56,7 @@
   let settings = { ...DEFAULT_SETTINGS };
   let idleTimer = null;
   let allTimezones = [];
+  const compareCardEls = {};
   const faviconCanvases = {};
   let latestHours = '00';
   let latestMinutes = '00';
@@ -68,6 +73,9 @@
     dateDisplay: document.getElementById('clock-date'),
     tzBadge: document.getElementById('clock-tz-badge'),
     tzCurrentInfo: document.getElementById('tz-current-info'),
+    compareRow: document.getElementById('compare-row'),
+    addCompareBtn: document.getElementById('add-compare-btn'),
+    compareZonesChips: document.getElementById('compare-zones-chips'),
     favicons: {
       16: document.getElementById('favicon-16'),
       32: document.getElementById('favicon-32'),
@@ -121,6 +129,10 @@
     } catch (e) {
       console.warn('Failed to load settings from localStorage:', e);
     }
+
+    // Always give settings its own array (never the shared DEFAULT_SETTINGS
+    // reference), otherwise pushing a compare zone would mutate the default.
+    settings.compareZones = Array.isArray(settings.compareZones) ? [...settings.compareZones] : [];
   }
 
   /**
@@ -364,11 +376,13 @@
   }
 
   /**
-   * Get date object parts formatted for the specified timezone
+   * Get date object parts formatted for the specified timezone.
+   * Defaults to the primary timezone; pass a zone to format for comparison cards instead.
    */
-  function getTimeParts() {
+  function getTimeParts(zoneOverride) {
     const now = new Date();
-    const tz = settings.timezone === 'local' ? undefined : settings.timezone;
+    const zone = zoneOverride !== undefined ? zoneOverride : settings.timezone;
+    const tz = zone === 'local' ? undefined : zone;
 
     try {
       const dtf = new Intl.DateTimeFormat('en-US', {
@@ -442,6 +456,159 @@
         tzName: 'Local',
       };
     }
+  }
+
+  /**
+   * UTC offset in minutes for a timezone at a given moment (handles DST).
+   * 'longOffset' (e.g. "GMT-04:30") is used over 'shortOffset' because it
+   * always includes minutes, which short-form offsets omit for whole hours.
+   */
+  function getUtcOffsetMinutes(zone, date) {
+    try {
+      const tz = zone === 'local' ? undefined : zone;
+      const dtf = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' });
+      const parts = dtf.formatToParts(date);
+      const offsetStr = (parts.find((p) => p.type === 'timeZoneName') || {}).value || 'GMT+0';
+      const match = offsetStr.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+      if (!match) return 0;
+      const sign = match[1] === '-' ? -1 : 1;
+      const hours = parseInt(match[2], 10);
+      const minutes = match[3] ? parseInt(match[3], 10) : 0;
+      return sign * (hours * 60 + minutes);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Human-readable difference between a compared zone's offset and the primary zone's
+   */
+  function formatOffsetDiff(diffMinutes) {
+    if (diffMinutes === 0) return 'Same as primary';
+    const sign = diffMinutes > 0 ? '+' : '−';
+    const abs = Math.abs(diffMinutes);
+    const hours = Math.floor(abs / 60);
+    const minutes = abs % 60;
+    return `${sign}${hours}h${minutes ? ` ${minutes}m` : ''}`;
+  }
+
+  /**
+   * Short display label for a timezone chip/card
+   */
+  function compareZoneLabel(zone) {
+    if (zone === 'local') return 'Local';
+    return zone.split('/').pop().replace(/_/g, ' ');
+  }
+
+  /**
+   * Add a timezone to the comparison row (no-ops on duplicates or when full)
+   */
+  function addCompareZone(zone) {
+    if (!zone || settings.compareZones.includes(zone) || settings.compareZones.length >= MAX_COMPARE_ZONES) {
+      return;
+    }
+    settings.compareZones.push(zone);
+    syncCompareCards();
+    saveSettings();
+    tick();
+  }
+
+  /**
+   * Remove a timezone from the comparison row
+   */
+  function removeCompareZone(zone) {
+    settings.compareZones = settings.compareZones.filter((z) => z !== zone);
+    syncCompareCards();
+    saveSettings();
+  }
+
+  /**
+   * Reconcile the comparison row's DOM cards with settings.compareZones.
+   * Cards are cached per-zone so tick() can update them via cheap textContent diffs.
+   */
+  function syncCompareCards() {
+    const zones = settings.compareZones;
+    el.body.classList.toggle('has-compare-zones', zones.length > 0);
+
+    Object.keys(compareCardEls).forEach((zone) => {
+      if (!zones.includes(zone)) {
+        compareCardEls[zone].root.remove();
+        delete compareCardEls[zone];
+      }
+    });
+
+    zones.forEach((zone) => {
+      if (compareCardEls[zone]) return;
+
+      const card = document.createElement('div');
+      card.className = 'compare-card';
+      card.setAttribute('data-tz', zone);
+      card.innerHTML = `
+        <button type="button" class="compare-card-remove" aria-label="Remove ${compareZoneLabel(zone)} from comparison">&times;</button>
+        <div class="compare-card-label">${compareZoneLabel(zone)}</div>
+        <div class="compare-card-time"><span class="ccard-time"></span><span class="ccard-ampm"></span></div>
+        <div class="compare-card-offset"></div>
+      `;
+      card.querySelector('.compare-card-remove').addEventListener('click', () => removeCompareZone(zone));
+      el.compareRow.appendChild(card);
+
+      compareCardEls[zone] = {
+        root: card,
+        time: card.querySelector('.ccard-time'),
+        ampm: card.querySelector('.ccard-ampm'),
+        offset: card.querySelector('.compare-card-offset'),
+      };
+    });
+
+    renderCompareZoneChips();
+  }
+
+  /**
+   * Render the removable chip list in the settings drawer
+   */
+  function renderCompareZoneChips() {
+    el.compareZonesChips.innerHTML = '';
+
+    if (settings.compareZones.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'compare-zones-empty';
+      empty.textContent = 'No timezones added yet. Pick one above, then click "Add to Comparison".';
+      el.compareZonesChips.appendChild(empty);
+      return;
+    }
+
+    settings.compareZones.forEach((zone) => {
+      const chip = document.createElement('span');
+      chip.className = 'compare-zone-chip';
+      chip.innerHTML = `<span>${compareZoneLabel(zone)}</span><button type="button" aria-label="Remove ${compareZoneLabel(zone)}">&times;</button>`;
+      chip.querySelector('button').addEventListener('click', () => removeCompareZone(zone));
+      el.compareZonesChips.appendChild(chip);
+    });
+  }
+
+  /**
+   * Refresh live time/offset text in each comparison card
+   */
+  function updateCompareCards() {
+    if (settings.compareZones.length === 0) return;
+    const now = new Date();
+    const primaryOffset = getUtcOffsetMinutes(settings.timezone, now);
+
+    settings.compareZones.forEach((zone) => {
+      const cardEls = compareCardEls[zone];
+      if (!cardEls) return;
+
+      const time = getTimeParts(zone);
+      const timeStr = `${time.hours}:${time.minutes}`;
+      if (cardEls.time.textContent !== timeStr) cardEls.time.textContent = timeStr;
+
+      const ampmStr = (!settings.is24Hour && settings.showAmPm) ? time.dayPeriod : '';
+      if (cardEls.ampm.textContent !== ampmStr) cardEls.ampm.textContent = ampmStr;
+
+      const diff = getUtcOffsetMinutes(zone, now) - primaryOffset;
+      const offsetStr = formatOffsetDiff(diff);
+      if (cardEls.offset.textContent !== offsetStr) cardEls.offset.textContent = offsetStr;
+    });
   }
 
   /**
@@ -604,6 +771,8 @@
       lastMinute = currentMin;
       updateFavicon(time.hours, time.minutes);
     }
+
+    updateCompareCards();
   }
 
   /**
@@ -745,6 +914,11 @@
       renderTimezoneOptions(e.target.value);
     });
 
+    // Add currently selected timezone to the comparison row
+    el.addCompareBtn.addEventListener('click', () => {
+      addCompareZone(el.tzSelect.value);
+    });
+
     // Color Pickers
     el.bgColorPicker.addEventListener('input', (e) => {
       settings.bgColor = e.target.value;
@@ -855,9 +1029,10 @@
     // Reset to defaults
     el.resetBtn.addEventListener('click', () => {
       if (confirm('Reset all TimeTab settings to defaults?')) {
-        settings = { ...DEFAULT_SETTINGS };
+        settings = { ...DEFAULT_SETTINGS, compareZones: [] };
         saveSettings();
         applyVisualSettings();
+        syncCompareCards();
         setTimezone(settings.timezone);
         tick();
       }
@@ -872,6 +1047,7 @@
     populateTimezoneList();
     renderThemePresets();
     applyVisualSettings();
+    syncCompareCards();
     setupEvents();
 
     // Initial update of info
