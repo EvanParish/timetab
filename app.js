@@ -450,15 +450,15 @@
    * ascent/descent metrics get rounded to whole pixels at these sizes and a
    * measurement-driven fit becomes unstable (can pick a wildly undersized or
    * jumbled font) once that rounding error is a large fraction of the size.
-   * Weight 700 (semibold, short of "bold") reads as more prominent without
+   * Weight 800 (bold, short of "black") reads as more prominent without
    * needing extra vertical room, which two stacked rows have very little of.
    */
   function drawFaviconRow(ctx, text, centerX, centerY, maxWidth, startSize) {
     let fontSize = startSize;
-    ctx.font = `700 ${fontSize}px ${ICON_FONT_STACK}`;
+    ctx.font = `800 ${fontSize}px ${ICON_FONT_STACK}`;
     while (ctx.measureText(text).width > maxWidth && fontSize > startSize * 0.4) {
       fontSize -= 1;
-      ctx.font = `700 ${fontSize}px ${ICON_FONT_STACK}`;
+      ctx.font = `800 ${fontSize}px ${ICON_FONT_STACK}`;
     }
     ctx.fillText(text, centerX, centerY);
   }
