@@ -543,6 +543,7 @@
       const card = document.createElement('div');
       card.className = 'compare-card';
       card.setAttribute('data-tz', zone);
+      card.draggable = true;
       card.innerHTML = `
         <button type="button" class="compare-card-remove" aria-label="Remove ${compareZoneLabel(zone)} from comparison">&times;</button>
         <div class="compare-card-label">${compareZoneLabel(zone)}</div>
@@ -561,6 +562,65 @@
     });
 
     renderCompareZoneChips();
+  }
+
+  /**
+   * Drag-to-reorder for comparison cards. The dragged card is moved live in
+   * the DOM as it passes over siblings; the new order is persisted on drop.
+   */
+  function setupCompareDrag() {
+    let dragging = null;
+
+    el.compareRow.addEventListener('dragstart', (e) => {
+      const card = e.target.closest && e.target.closest('.compare-card');
+      if (!card) return;
+      dragging = card;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.getAttribute('data-tz'));
+
+      // Custom drag image: a lifted copy (shadow, slight tilt/scale) so the held card
+      // reads as hovering above the row. Padding leaves room for the shadow.
+      const pad = 30;
+      const rect = card.getBoundingClientRect();
+      const ghost = document.createElement('div');
+      ghost.className = 'compare-drag-ghost';
+      ghost.style.padding = `${pad}px`;
+      const clone = card.cloneNode(true);
+      clone.classList.add('lifted');
+      clone.style.width = `${rect.width}px`;
+      ghost.appendChild(clone);
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, e.clientX - rect.left + pad, e.clientY - rect.top + pad);
+      setTimeout(() => ghost.remove(), 0);
+
+      requestAnimationFrame(() => card.classList.add('dragging'));
+    });
+
+    el.compareRow.addEventListener('dragover', (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const over = e.target.closest('.compare-card');
+      if (!over || over === dragging) return;
+      const rect = over.getBoundingClientRect();
+      const sameRow = e.clientY >= rect.top && e.clientY <= rect.bottom;
+      const after = sameRow ? e.clientX > rect.left + rect.width / 2 : e.clientY > rect.top + rect.height / 2;
+      el.compareRow.insertBefore(dragging, after ? over.nextSibling : over);
+    });
+
+    el.compareRow.addEventListener('drop', (e) => {
+      if (dragging) e.preventDefault();
+    });
+
+    el.compareRow.addEventListener('dragend', () => {
+      if (!dragging) return;
+      dragging.classList.remove('dragging');
+      dragging = null;
+      settings.compareZones = Array.from(el.compareRow.querySelectorAll('.compare-card'))
+        .map((c) => c.getAttribute('data-tz'));
+      renderCompareZoneChips();
+      saveSettings();
+    });
   }
 
   /**
@@ -909,6 +969,20 @@
       }
     });
 
+    // Right-click a timezone (quick chip or list entry) to add it as a compare target
+    el.tzChips.addEventListener('contextmenu', (e) => {
+      const chip = e.target.closest('.chip-btn');
+      if (!chip) return;
+      e.preventDefault();
+      addCompareZone(chip.getAttribute('data-tz'));
+    });
+    el.tzSelect.addEventListener('contextmenu', (e) => {
+      const opt = e.target.closest('option');
+      if (!opt) return;
+      e.preventDefault();
+      addCompareZone(opt.value);
+    });
+
     // Timezone search input
     el.tzSearchInput.addEventListener('input', (e) => {
       renderTimezoneOptions(e.target.value);
@@ -1049,6 +1123,7 @@
     applyVisualSettings();
     syncCompareCards();
     setupEvents();
+    setupCompareDrag();
 
     // Initial update of info
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';

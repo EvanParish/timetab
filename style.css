@@ -321,6 +321,34 @@ body.is-idle:not(.settings-open) .toolbar {
   border-radius: 12px;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  cursor: grab;
+}
+
+.compare-card:active {
+  cursor: grabbing;
+}
+
+.compare-card.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+}
+
+/* Off-screen wrapper rendered into the browser's drag image */
+.compare-drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  pointer-events: none;
+  color: var(--text-color);
+}
+
+.compare-drag-ghost .compare-card.lifted {
+  background-color: var(--bg-color);
+  background-image: linear-gradient(rgba(128, 128, 128, 0.22), rgba(128, 128, 128, 0.22));
+  border-color: rgba(128, 128, 128, 0.5);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.3);
+  transform: scale(1.06) rotate(-2deg);
+  cursor: grabbing;
 }
 
 .compare-card-remove {
